@@ -723,10 +723,14 @@ object Repository {
 
     suspend fun getQuest(questCode: String): Quest? {
         val trimmedCode = questCode.trim().uppercase()
+        val normalizedCode = when (trimmedCode) {
+            "QQ-SIDE-GATE", "SIDE-GATE", "SIDEGATE" -> "QQ-SIDEGATE"
+            else -> trimmedCode
+        }
         try {
             val db = firestore
             if (db != null) {
-                val doc = db.collection("quests").document(trimmedCode).get().await()
+                val doc = db.collection("quests").document(normalizedCode).get().await()
                 if (doc.exists()) {
                     val q = doc.toObject(Quest::class.java)
                     if (q != null && q.active) return q
@@ -736,7 +740,7 @@ object Repository {
             // fallback
         }
 
-        val seed = SeedQuests.QUEST_MAP[trimmedCode]
+        val seed = SeedQuests.QUEST_MAP[normalizedCode]
         if (seed != null && seed.active) return seed
 
         return null

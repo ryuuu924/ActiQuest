@@ -60,6 +60,7 @@ fun ProfileSettingsContent(
 
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showEditProfileDialog by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
     var pushNotificationsEnabled by remember { mutableStateOf(true) }
     var questRemindersEnabled by remember { mutableStateOf(true) }
 
@@ -217,6 +218,200 @@ fun ProfileSettingsContent(
             },
             containerColor = if (isDark) SurfaceCharcoal else Color.White,
             shape = RoundedCornerShape(20.dp)
+        )
+    }
+
+    if (showAboutDialog) {
+        AlertDialog(
+            onDismissRequest = { showAboutDialog = false },
+            title = null,
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(CobaltBlue, ElectricBlue)
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FitnessCenter,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "ActiQuest",
+                        fontFamily = SfBoldFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                        color = if (isDark) Color.White else LightTextPrimary
+                    )
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = CobaltBlue.copy(alpha = 0.15f),
+                        modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+                    ) {
+                        Text(
+                            text = "v2.4.0 • Campus Edition",
+                            fontFamily = SfBoldFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = CobaltBlue,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+
+                    Text(
+                        text = "Gamified campus wellness & physical movement platform built to inspire active habits, campus discovery, and friendly inter-class competitions.",
+                        fontFamily = SfSemiFontFamily,
+                        fontSize = 13.sp,
+                        color = if (isDark) SlateLight else LightTextSecondary,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 18.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (isDark) SurfaceElevated.copy(alpha = 0.7f) else Color(0xFFF8FAFC),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (isDark) SurfaceElevatedHigh else Color(0xFFE2E8F0)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.Top) {
+                                Text("📍", fontSize = 14.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        "Campus Landmark Quests",
+                                        fontFamily = SfBoldFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.5.sp,
+                                        color = if (isDark) Color.White else LightTextPrimary
+                                    )
+                                    Text(
+                                        "Scan QR markers at spots like Side Gate, Diokno Steps & the Track Oval to trigger timed exercises.",
+                                        fontFamily = SfSemiFontFamily,
+                                        fontSize = 11.5.sp,
+                                        color = if (isDark) SlateLight else LightTextSecondary,
+                                        lineHeight = 15.sp
+                                    )
+                                }
+                            }
+
+                            Row(verticalAlignment = Alignment.Top) {
+                                Text("🎥", fontSize = 14.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        "Activity & Motion Proof",
+                                        fontFamily = SfBoldFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.5.sp,
+                                        color = if (isDark) Color.White else LightTextPrimary
+                                    )
+                                    Text(
+                                        "Record exercise video proof or upload daily pedometer step counts directly for verification.",
+                                        fontFamily = SfSemiFontFamily,
+                                        fontSize = 11.5.sp,
+                                        color = if (isDark) SlateLight else LightTextSecondary,
+                                        lineHeight = 15.sp
+                                    )
+                                }
+                            }
+
+                            Row(verticalAlignment = Alignment.Top) {
+                                Text("🛡️", fontSize = 14.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        "Admin Verification Desk",
+                                        fontFamily = SfBoldFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.5.sp,
+                                        color = if (isDark) Color.White else LightTextPrimary
+                                    )
+                                    Text(
+                                        "Faculty coordinators review proofs, award custom points, and award milestone badges.",
+                                        fontFamily = SfSemiFontFamily,
+                                        fontSize = 11.5.sp,
+                                        color = if (isDark) SlateLight else LightTextSecondary,
+                                        lineHeight = 15.sp
+                                    )
+                                }
+                            }
+
+                            Row(verticalAlignment = Alignment.Top) {
+                                Text("🏆", fontSize = 14.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        "Inter-Class Leaderboards",
+                                        fontFamily = SfBoldFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.5.sp,
+                                        color = if (isDark) Color.White else LightTextPrimary
+                                    )
+                                    Text(
+                                        "Points fuel real-time standings between colleges, year levels, and sections.",
+                                        fontFamily = SfSemiFontFamily,
+                                        fontSize = 11.5.sp,
+                                        color = if (isDark) SlateLight else LightTextSecondary,
+                                        lineHeight = 15.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "Open Source Campaign Template • Ready for your school",
+                        fontFamily = SfSemiFontFamily,
+                        fontSize = 10.5.sp,
+                        color = if (isDark) TextMuted else Color(0xFF94A3B8),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showAboutDialog = false },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = CobaltBlue),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        "Close",
+                        fontFamily = SfBoldFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            },
+            containerColor = if (isDark) SurfaceCharcoal else Color.White,
+            shape = RoundedCornerShape(24.dp)
         )
     }
 
@@ -534,13 +729,11 @@ fun ProfileSettingsContent(
             ) {
                 Column {
                     SettingsNavRow(
-                        icon = Icons.Default.Security,
-                        title = "Security & Honor Code",
-                        subtitle = "DLSL Campus Wellness Compliance",
+                        icon = Icons.Default.Info,
+                        title = "About ActiQuest",
+                        subtitle = "Version, purpose, campaign info & credits",
                         isDark = isDark,
-                        onClick = {
-                            Toast.makeText(context, "ActiQuest Campus Wellness Honor Code v2.4 Active", Toast.LENGTH_SHORT).show()
-                        }
+                        onClick = { showAboutDialog = true }
                     )
                     HorizontalDivider(color = if (isDark) SurfaceElevatedHigh.copy(alpha = 0.5f) else Color(0xFFF1F5F9))
                     SettingsNavRow(

@@ -231,6 +231,16 @@ object SeedQuests {
             maxSeconds = 30,
             active = true
         ),
+        "QQ-SIDEGATE" to Quest(
+            questCode = "QQ-SIDEGATE",
+            title = "Side Gate Lunges",
+            instructions = "Perform 12 walking lunges (6 per leg) along the campus perimeter walkway near the Side Gate.",
+            location = "Campus Side Gate Walkway",
+            category = "quick",
+            pointValue = 50,
+            maxSeconds = 30,
+            active = true
+        ),
 
         // Explorer Quests (100 pts, ~60–90s cap)
         "EQ-LRC" to Quest(
