@@ -40,6 +40,7 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.actiquest.R
 import com.actiquest.data.Repository
+import com.actiquest.domain.AcademicChangeRequest
 import com.actiquest.domain.Quest
 import com.actiquest.domain.SeedQuests
 import com.actiquest.domain.Submission
@@ -59,12 +60,15 @@ fun AdminReviewScreen(
     val isDark = ThemeManager.isDarkMode
 
     val pendingSubmissions by remember { Repository.listenPendingSubmissions() }.collectAsState(initial = emptyList())
+    val pendingAcademicRequests by remember { Repository.listenAcademicRequests() }.collectAsState(initial = emptyList())
     val allQuests = remember { SeedQuests.QUEST_MAP.values.toList() }
     var selectedBottomTab by remember { mutableStateOf(0) }
     var selectedTab by remember { mutableStateOf("Pending") }
     var subTypeFilter by remember { mutableStateOf("All") } // "All", "Videos", "Screenshots"
     var questCategoryFilter by remember { mutableStateOf("All") }
     var selectedSubmissionForReview by remember { mutableStateOf<Submission?>(null) }
+    var academicRequestToReject by remember { mutableStateOf<AcademicChangeRequest?>(null) }
+    var academicRejectReason by remember { mutableStateOf("") }
     var isProcessingAction by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var lastBackPressTime by remember { mutableLongStateOf(0L) }
@@ -134,6 +138,60 @@ fun AdminReviewScreen(
                         fontFamily = SfSemiFontFamily,
                         color = if (isDark) SlateLight else LightTextSecondary
                     )
+                }
+            },
+            containerColor = if (isDark) SurfaceCharcoal else Color.White,
+            shape = RoundedCornerShape(20.dp)
+        )
+    }
+
+    if (academicRequestToReject != null) {
+        val req = academicRequestToReject!!
+        AlertDialog(
+            onDismissRequest = { academicRequestToReject = null },
+            title = {
+                Text(
+                    text = "Reject Academic Request",
+                    fontFamily = SfBoldFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isDark) Color.White else LightTextPrimary
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Provide a reason for ${req.studentName} explaining why this academic transfer was denied.",
+                        fontFamily = SfSemiFontFamily,
+                        fontSize = 12.sp,
+                        color = if (isDark) SlateLight else LightTextSecondary
+                    )
+                    OutlinedTextField(
+                        value = academicRejectReason,
+                        onValueChange = { academicRejectReason = it },
+                        label = { Text("Rejection Reason") },
+                        placeholder = { Text("e.g. Unofficial section, prerequisite missing") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val reasonText = academicRejectReason.ifBlank { "Academic record verification failed" }
+                        coroutineScope.launch {
+                            Repository.rejectAcademicChangeRequest(req.requestId, reasonText)
+                            Toast.makeText(context, "Request rejected with feedback note", Toast.LENGTH_SHORT).show()
+                            academicRequestToReject = null
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = StatusRejected)
+                ) {
+                    Text("Confirm Rejection", fontFamily = SfBoldFontFamily, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { academicRequestToReject = null }) {
+                    Text("Cancel", fontFamily = SfSemiFontFamily, color = if (isDark) SlateLight else LightTextSecondary)
                 }
             },
             containerColor = if (isDark) SurfaceCharcoal else Color.White,
@@ -392,6 +450,15 @@ fun AdminReviewScreen(
                                     )
                                 }
                                 item {
+                                    val activeAcademicCount = pendingAcademicRequests.count { it.status == "pending" }
+                                    FilterPill(
+                                        label = "Academics ($activeAcademicCount)",
+                                        isSelected = selectedTab == "Academic",
+                                        activeColor = if (activeAcademicCount > 0) StatusPending else CobaltBlue,
+                                        onClick = { selectedTab = "Academic" }
+                                    )
+                                }
+                                item {
                                     FilterPill(
                                         label = "Quests & QR Codes (${allQuests.size})",
                                         isSelected = selectedTab == "Quests",
@@ -541,6 +608,83 @@ fun AdminReviewScreen(
                                     AdminReviewTicketCard(
                                         submission = submission,
                                         onReview = { selectedSubmissionForReview = submission }
+                                    )
+                                }
+                            }
+                        } else if (selectedTab == "Academic") {
+                            val activeAcademicRequests = pendingAcademicRequests.filter { it.status == "pending" }
+                            if (activeAcademicRequests.isEmpty()) {
+                                item {
+                                    Surface(
+                                        shape = RoundedCornerShape(20.dp),
+                                        color = if (isDark) SurfaceCharcoal else Color.White,
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            if (isDark) SurfaceElevatedHigh else Color(0xFFE2E8F0)
+                                        ),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(32.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(48.dp)
+                                                    .clip(CircleShape)
+                                                    .background(MintEmerald.copy(alpha = 0.15f)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.CheckCircle,
+                                                    contentDescription = null,
+                                                    tint = MintEmerald,
+                                                    modifier = Modifier.size(28.dp)
+                                                )
+                                            }
+                                            Text(
+                                                text = "All Academic Requests Cleared",
+                                                fontFamily = SfBoldFontFamily,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 15.sp,
+                                                color = if (isDark) Color.White else LightTextPrimary
+                                            )
+                                            Text(
+                                                text = "No pending student class transfers or academic changes in queue.",
+                                                fontFamily = SfSemiFontFamily,
+                                                fontSize = 12.sp,
+                                                color = if (isDark) SlateLight else LightTextSecondary,
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                item {
+                                    Text(
+                                        text = "${activeAcademicRequests.size} Pending Student Academic Changes",
+                                        fontFamily = SfBoldFontFamily,
+                                        fontSize = 13.sp,
+                                        color = if (isDark) SlateLight else LightTextSecondary
+                                    )
+                                }
+                                items(activeAcademicRequests) { req ->
+                                    AcademicRequestCard(
+                                        request = req,
+                                        isDark = isDark,
+                                        onApprove = {
+                                            coroutineScope.launch {
+                                                Repository.approveAcademicChangeRequest(req.requestId, "Approved by admin verification desk")
+                                                Toast.makeText(context, "Academic change approved for ${req.studentName}!", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        onReject = {
+                                            academicRequestToReject = req
+                                            academicRejectReason = ""
+                                        }
                                     )
                                 }
                             }
@@ -1660,6 +1804,220 @@ fun AdminQuestMatrixCard(
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("${quest.maxSeconds}s Max Video", fontSize = 11.sp, color = TextSecondary)
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AcademicRequestCard(
+    request: AcademicChangeRequest,
+    isDark: Boolean,
+    onApprove: () -> Unit,
+    onReject: () -> Unit
+) {
+    val relativeTime = DateUtils.getRelativeTimeSpanString(
+        request.requestedAt,
+        System.currentTimeMillis(),
+        DateUtils.MINUTE_IN_MILLIS
+    )
+
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = if (isDark) SurfaceCharcoal else Color.White,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (isDark) SurfaceElevatedHigh else Color(0xFFE2E8F0)
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(CobaltBlue.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = request.studentName.take(1).uppercase(),
+                            fontFamily = SfBoldFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            color = CobaltBlue,
+                            fontSize = 16.sp
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = request.studentName,
+                            fontFamily = SfBoldFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = if (isDark) Color.White else LightTextPrimary
+                        )
+                        Text(
+                            text = request.studentEmail.ifEmpty { "Requested $relativeTime" },
+                            fontFamily = SfSemiFontFamily,
+                            fontSize = 11.sp,
+                            color = if (isDark) SlateLight else LightTextSecondary
+                        )
+                    }
+                }
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFF59E0B).copy(alpha = 0.15f)
+                ) {
+                    Text(
+                        text = "PENDING REVIEW",
+                        fontFamily = SfBoldFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp,
+                        color = if (isDark) Color(0xFFFCD34D) else Color(0xFFB45309),
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                    )
+                }
+            }
+
+            // Academic Comparison Box
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (isDark) SurfaceElevated.copy(alpha = 0.6f) else Color(0xFFF8FAFC),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (isDark) SurfaceElevatedHigh else Color(0xFFE2E8F0)
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "CURRENT ACADEMIC",
+                                fontFamily = SfBoldFontFamily,
+                                fontSize = 9.sp,
+                                color = if (isDark) SlateLight else LightTextSecondary
+                            )
+                            Text(
+                                text = "${request.currentCollege} • ${request.currentSection}",
+                                fontFamily = SfBoldFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = if (isDark) Color.White else LightTextPrimary
+                            )
+                            Text(
+                                text = request.currentProgram,
+                                fontFamily = SfSemiFontFamily,
+                                fontSize = 11.sp,
+                                color = if (isDark) SlateLight else LightTextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        Icon(
+                            imageVector = Icons.Default.ArrowForward,
+                            contentDescription = null,
+                            tint = CobaltBlue,
+                            modifier = Modifier
+                                .padding(horizontal = 8.dp)
+                                .size(18.dp)
+                        )
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "REQUESTED TRANSFER",
+                                fontFamily = SfBoldFontFamily,
+                                fontSize = 9.sp,
+                                color = CobaltBlue
+                            )
+                            Text(
+                                text = "${request.requestedCollege} • ${request.requestedSection}",
+                                fontFamily = SfBoldFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = if (isDark) Color.White else LightTextPrimary
+                            )
+                            Text(
+                                text = request.requestedProgram,
+                                fontFamily = SfSemiFontFamily,
+                                fontSize = 11.sp,
+                                color = if (isDark) SlateLight else LightTextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    if (request.reason.isNotBlank()) {
+                        HorizontalDivider(color = if (isDark) SurfaceElevatedHigh else Color(0xFFE2E8F0))
+                        Row(verticalAlignment = Alignment.Top) {
+                            Text(
+                                text = "Reason: ",
+                                fontFamily = SfBoldFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                color = if (isDark) SlateLight else LightTextSecondary
+                            )
+                            Text(
+                                text = request.reason,
+                                fontFamily = SfSemiFontFamily,
+                                fontSize = 11.sp,
+                                color = if (isDark) Color.White else LightTextPrimary
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Action Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onReject,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = StatusRejected
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, StatusRejected.copy(alpha = 0.5f))
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Reject", fontFamily = SfBoldFontFamily, fontSize = 12.sp)
+                }
+
+                Button(
+                    onClick = onApprove,
+                    modifier = Modifier.weight(1.5f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MintEmerald)
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Approve Transfer", fontFamily = SfBoldFontFamily, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 12.sp)
                 }
             }
         }

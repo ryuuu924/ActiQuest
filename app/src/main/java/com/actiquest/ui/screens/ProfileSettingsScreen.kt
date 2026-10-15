@@ -29,7 +29,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import com.actiquest.data.Repository
+import com.actiquest.domain.AcademicChangeRequest
 import com.actiquest.domain.BadgeCatalog
 import com.actiquest.domain.CollegeCatalog
 import com.actiquest.domain.User
@@ -115,12 +118,18 @@ fun ProfileSettingsContent(
         var editProgram by remember { mutableStateOf(user.program) }
         var editYear by remember { mutableStateOf(user.yearLevel) }
         var editSection by remember { mutableStateOf(user.section) }
+        var editReason by remember { mutableStateOf("") }
+
+        val academicChanged = editCollege.trim() != user.college.trim() ||
+                editProgram.trim() != user.program.trim() ||
+                editYear.trim() != user.yearLevel.trim() ||
+                editSection.trim() != user.section.trim()
 
         AlertDialog(
             onDismissRequest = { showEditProfileDialog = false },
             title = {
                 Text(
-                    text = "Edit Profile",
+                    text = if (isAdmin) "Edit Admin Profile" else "Edit Profile & Academics",
                     fontFamily = SfBoldFontFamily,
                     fontWeight = FontWeight.Bold,
                     color = if (isDark) Color.White else LightTextPrimary
@@ -152,6 +161,36 @@ fun ProfileSettingsContent(
                             modifier = Modifier.weight(1f)
                         )
                     }
+
+                    if (!isAdmin && academicChanged) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = CobaltBlue.copy(alpha = 0.10f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CobaltBlue.copy(alpha = 0.35f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = null,
+                                    tint = CobaltBlue,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Academic info affects official class standings. Changes will be submitted to the Admin Verification Desk for review.",
+                                    fontFamily = SfSemiFontFamily,
+                                    fontSize = 11.sp,
+                                    color = if (isDark) Color.White else CobaltBlue,
+                                    lineHeight = 14.sp
+                                )
+                            }
+                        }
+                    }
+
                     OutlinedTextField(
                         value = editCollege,
                         onValueChange = { editCollege = it },
@@ -185,6 +224,17 @@ fun ProfileSettingsContent(
                             modifier = Modifier.weight(1f)
                         )
                     }
+
+                    if (!isAdmin && academicChanged) {
+                        OutlinedTextField(
+                            value = editReason,
+                            onValueChange = { editReason = it },
+                            label = { Text("Reason for academic change") },
+                            placeholder = { Text("e.g. Shifting program, section adjustment") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -192,23 +242,60 @@ fun ProfileSettingsContent(
                     onClick = {
                         coroutineScope.launch {
                             val fullName = "${editFirstName.trim()} ${editLastName.trim()}".trim()
-                            Repository.updateUserProfile(
-                                uid = user.uid,
-                                name = fullName,
-                                firstName = editFirstName.trim(),
-                                lastName = editLastName.trim(),
-                                college = editCollege,
-                                program = editProgram,
-                                yearLevel = editYear,
-                                section = editSection
-                            )
-                            Toast.makeText(context, "Profile updated successfully", Toast.LENGTH_SHORT).show()
+                            if (isAdmin) {
+                                Repository.updateUserProfile(
+                                    uid = user.uid,
+                                    name = fullName,
+                                    firstName = editFirstName.trim(),
+                                    lastName = editLastName.trim(),
+                                    college = editCollege,
+                                    program = editProgram,
+                                    yearLevel = editYear,
+                                    section = editSection
+                                )
+                                Toast.makeText(context, "Admin profile updated successfully", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Repository.updateUserProfile(
+                                    uid = user.uid,
+                                    name = fullName,
+                                    firstName = editFirstName.trim(),
+                                    lastName = editLastName.trim(),
+                                    college = user.college,
+                                    program = user.program,
+                                    yearLevel = user.yearLevel,
+                                    section = user.section
+                                )
+                                if (academicChanged) {
+                                    val req = AcademicChangeRequest(
+                                        userId = user.uid,
+                                        studentName = fullName.ifEmpty { user.name },
+                                        studentEmail = user.email,
+                                        currentCollege = user.college,
+                                        currentProgram = user.program,
+                                        currentYearLevel = user.yearLevel,
+                                        currentSection = user.section,
+                                        requestedCollege = editCollege.trim(),
+                                        requestedProgram = editProgram.trim(),
+                                        requestedYearLevel = editYear.trim(),
+                                        requestedSection = editSection.trim(),
+                                        reason = editReason.trim().ifEmpty { "Academic enrollment / section adjustment" }
+                                    )
+                                    Repository.submitAcademicChangeRequest(req)
+                                    Toast.makeText(context, "Academic update submitted for Admin Verification Desk review!", Toast.LENGTH_LONG).show()
+                                } else {
+                                    Toast.makeText(context, "Profile name updated successfully", Toast.LENGTH_SHORT).show()
+                                }
+                            }
                             showEditProfileDialog = false
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = CobaltBlue)
                 ) {
-                    Text("Save Changes", fontFamily = SfBoldFontFamily, fontWeight = FontWeight.Bold)
+                    Text(
+                        if (!isAdmin && academicChanged) "Submit for Admin Review" else "Save Changes",
+                        fontFamily = SfBoldFontFamily,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             },
             dismissButton = {
@@ -230,24 +317,13 @@ fun ProfileSettingsContent(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Box(
+                    Image(
+                        painter = painterResource(com.actiquest.R.drawable.actiquest_logo),
+                        contentDescription = "ActiQuest Logo",
                         modifier = Modifier
-                            .size(54.dp)
-                            .clip(CircleShape)
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(CobaltBlue, ElectricBlue)
-                                )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.FitnessCenter,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
+                            .size(72.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                    )
 
                     Spacer(modifier = Modifier.height(12.dp))
 
@@ -564,10 +640,88 @@ fun ProfileSettingsContent(
                         SettingsNavRow(
                             icon = Icons.Default.Edit,
                             title = "Edit Academic Information",
-                            subtitle = "Class: ${user.classId}",
+                            subtitle = if (user.pendingAcademicUpdate) "⚠️ Change Pending Admin Review" else "Class: ${user.classId}",
                             isDark = isDark,
                             onClick = { showEditProfileDialog = true }
                         )
+                    }
+                }
+            }
+        }
+
+        if (user.pendingAcademicUpdate) {
+            item {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = if (isDark) Color(0xFFF59E0B).copy(alpha = 0.12f) else Color(0xFFFEF3C7),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (isDark) Color(0xFFF59E0B).copy(alpha = 0.4f) else Color(0xFFFDE68A)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFF59E0B).copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.HourglassTop,
+                                contentDescription = null,
+                                tint = if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "Academic Change Under Review",
+                                    fontFamily = SfBoldFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = if (isDark) Color.White else Color(0xFF92400E)
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFFF59E0B).copy(alpha = 0.25f)
+                                ) {
+                                    Text(
+                                        text = "IN QUEUE",
+                                        fontFamily = SfBoldFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 9.sp,
+                                        color = if (isDark) Color(0xFFFCD34D) else Color(0xFFB45309),
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = "Requested: ${user.pendingAcademicDetails.ifEmpty { "Class Adjustment" }}",
+                                fontFamily = SfSemiFontFamily,
+                                fontSize = 11.5.sp,
+                                color = if (isDark) Color(0xFFFDE68A) else Color(0xFF78350F),
+                                lineHeight = 15.sp
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Admin Verification Desk will review and update your official class leaderboard standing.",
+                                fontFamily = SfSemiFontFamily,
+                                fontSize = 10.5.sp,
+                                color = if (isDark) SlateLight else Color(0xFF92400E).copy(alpha = 0.8f),
+                                lineHeight = 14.sp
+                            )
+                        }
                     }
                 }
             }

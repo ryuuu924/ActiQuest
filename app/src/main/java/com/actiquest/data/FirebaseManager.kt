@@ -235,6 +235,28 @@ object Repository {
         )
     )
 
+    private val _localAcademicRequests = MutableStateFlow<List<AcademicChangeRequest>>(
+        listOf(
+            AcademicChangeRequest(
+                requestId = "req_demo_01",
+                userId = "student_clara",
+                studentName = "Clara Santos",
+                studentEmail = "clara.santos@dlsl.edu.ph",
+                currentCollege = "CITE",
+                currentProgram = "BS Information Technology",
+                currentYearLevel = "2nd Year",
+                currentSection = "2A",
+                requestedCollege = "CITE",
+                requestedProgram = "BS Computer Science",
+                requestedYearLevel = "2nd Year",
+                requestedSection = "2B",
+                reason = "Shifting major track from IT to Computer Science for 2nd semester.",
+                status = "pending",
+                requestedAt = System.currentTimeMillis() - 1000 * 60 * 60 * 3
+            )
+        )
+    )
+
     // Current active session role
     private val _currentUserId = MutableStateFlow("student_default")
     val currentUserId = _currentUserId.asStateFlow()
@@ -1212,6 +1234,219 @@ object Repository {
         _localUsers.value = currentUsers
         if (_currentUserId.value == uid) {
             _currentUser.value = updated
+        }
+        return true
+    }
+
+    fun listenAcademicRequests(): Flow<List<AcademicChangeRequest>> = callbackFlow {
+        val db = firestore
+        if (db != null) {
+            val listener = db.collection("academic_requests")
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        trySend(_localAcademicRequests.value)
+                        return@addSnapshotListener
+                    }
+                    if (snapshot != null) {
+                        val remoteList = snapshot.toObjects(AcademicChangeRequest::class.java)
+                        val merged = _localAcademicRequests.value.toMutableList()
+                        for (remote in remoteList) {
+                            val idx = merged.indexOfFirst { it.requestId == remote.requestId }
+                            if (idx >= 0) {
+                                merged[idx] = remote
+                            } else {
+                                merged.add(remote)
+                            }
+                        }
+                        _localAcademicRequests.value = merged
+                    }
+                    trySend(_localAcademicRequests.value)
+                }
+            awaitClose { listener.remove() }
+        } else {
+            trySend(_localAcademicRequests.value)
+            awaitClose {}
+        }
+    }
+
+    fun listenUserAcademicRequest(userId: String): Flow<AcademicChangeRequest?> = callbackFlow {
+        val db = firestore
+        if (db != null && userId.isNotEmpty()) {
+            val listener = db.collection("academic_requests")
+                .whereEqualTo("userId", userId)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        val local = _localAcademicRequests.value.filter { it.userId == userId }.maxByOrNull { it.requestedAt }
+                        trySend(local)
+                        return@addSnapshotListener
+                    }
+                    if (snapshot != null) {
+                        val list = snapshot.toObjects(AcademicChangeRequest::class.java)
+                        val latest = list.maxByOrNull { it.requestedAt } ?: _localAcademicRequests.value.filter { it.userId == userId }.maxByOrNull { it.requestedAt }
+                        trySend(latest)
+                    } else {
+                        val local = _localAcademicRequests.value.filter { it.userId == userId }.maxByOrNull { it.requestedAt }
+                        trySend(local)
+                    }
+                }
+            awaitClose { listener.remove() }
+        } else {
+            val local = _localAcademicRequests.value.filter { it.userId == userId }.maxByOrNull { it.requestedAt }
+            trySend(local)
+            awaitClose {}
+        }
+    }
+
+    suspend fun submitAcademicChangeRequest(request: AcademicChangeRequest): Boolean {
+        val currentList = _localAcademicRequests.value.toMutableList()
+        currentList.removeAll { it.requestId == request.requestId }
+        currentList.add(0, request)
+        _localAcademicRequests.value = currentList
+
+        val user = _localUsers.value[request.userId] ?: _currentUser.value
+        val detailsString = "${request.requestedCollege} • ${request.requestedProgram} (${request.requestedSection})"
+        if (user != null) {
+            val updatedUser = user.copy(
+                pendingAcademicUpdate = true,
+                pendingAcademicDetails = detailsString
+            )
+            val currentUsers = _localUsers.value.toMutableListMap()
+            currentUsers[request.userId] = updatedUser
+            _localUsers.value = currentUsers
+            if (_currentUserId.value == request.userId) {
+                _currentUser.value = updatedUser
+            }
+        }
+
+        val db = firestore
+        if (db != null) {
+            try {
+                db.collection("academic_requests").document(request.requestId)
+                    .set(request, SetOptions.merge()).await()
+                db.collection("users").document(request.userId).set(
+                    mapOf(
+                        "pendingAcademicUpdate" to true,
+                        "pendingAcademicDetails" to detailsString
+                    ),
+                    SetOptions.merge()
+                ).await()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        return true
+    }
+
+    suspend fun approveAcademicChangeRequest(requestId: String, reviewerNote: String? = null): Boolean {
+        val timestamp = System.currentTimeMillis()
+        val request = _localAcademicRequests.value.find { it.requestId == requestId } ?: return false
+
+        val updatedRequests = _localAcademicRequests.value.map {
+            if (it.requestId == requestId) {
+                it.copy(status = "approved", reviewedAt = timestamp, reviewerNote = reviewerNote)
+            } else it
+        }
+        _localAcademicRequests.value = updatedRequests
+
+        val user = _localUsers.value[request.userId] ?: _currentUser.value
+        val newClassId = buildClassId(
+            request.requestedCollege,
+            request.requestedProgram,
+            request.requestedYearLevel,
+            request.requestedSection
+        )
+
+        if (user != null) {
+            val updatedUser = user.copy(
+                college = request.requestedCollege,
+                program = request.requestedProgram,
+                yearLevel = request.requestedYearLevel,
+                section = request.requestedSection,
+                classId = newClassId,
+                pendingAcademicUpdate = false,
+                pendingAcademicDetails = ""
+            )
+            val currentUsers = _localUsers.value.toMutableListMap()
+            currentUsers[request.userId] = updatedUser
+            _localUsers.value = currentUsers
+            if (_currentUserId.value == request.userId) {
+                _currentUser.value = updatedUser
+            }
+        }
+
+        val db = firestore
+        if (db != null) {
+            try {
+                val reqUpdates = mutableMapOf<String, Any>(
+                    "status" to "approved",
+                    "reviewedAt" to timestamp
+                )
+                if (reviewerNote != null) reqUpdates["reviewerNote"] = reviewerNote
+                db.collection("academic_requests").document(requestId).set(reqUpdates, SetOptions.merge()).await()
+
+                val userUpdates = mapOf<String, Any>(
+                    "college" to request.requestedCollege,
+                    "program" to request.requestedProgram,
+                    "yearLevel" to request.requestedYearLevel,
+                    "section" to request.requestedSection,
+                    "classId" to newClassId,
+                    "pendingAcademicUpdate" to false,
+                    "pendingAcademicDetails" to ""
+                )
+                db.collection("users").document(request.userId).set(userUpdates, SetOptions.merge()).await()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        return true
+    }
+
+    suspend fun rejectAcademicChangeRequest(requestId: String, reason: String): Boolean {
+        val timestamp = System.currentTimeMillis()
+        val request = _localAcademicRequests.value.find { it.requestId == requestId } ?: return false
+
+        val updatedRequests = _localAcademicRequests.value.map {
+            if (it.requestId == requestId) {
+                it.copy(status = "rejected", reviewedAt = timestamp, reviewerNote = reason)
+            } else it
+        }
+        _localAcademicRequests.value = updatedRequests
+
+        val user = _localUsers.value[request.userId] ?: _currentUser.value
+        if (user != null) {
+            val updatedUser = user.copy(
+                pendingAcademicUpdate = false,
+                pendingAcademicDetails = ""
+            )
+            val currentUsers = _localUsers.value.toMutableListMap()
+            currentUsers[request.userId] = updatedUser
+            _localUsers.value = currentUsers
+            if (_currentUserId.value == request.userId) {
+                _currentUser.value = updatedUser
+            }
+        }
+
+        val db = firestore
+        if (db != null) {
+            try {
+                db.collection("academic_requests").document(requestId).set(
+                    mapOf(
+                        "status" to "rejected",
+                        "reviewedAt" to timestamp,
+                        "reviewerNote" to reason
+                    ),
+                    SetOptions.merge()
+                ).await()
+                db.collection("users").document(request.userId).set(
+                    mapOf(
+                        "pendingAcademicUpdate" to false,
+                        "pendingAcademicDetails" to ""
+                    ),
+                    SetOptions.merge()
+                ).await()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
         return true
     }

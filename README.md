@@ -1,4 +1,7 @@
-# ⚡ ActiQuest: Campus Fitness & Active Learning Quest System
+<div align="center">
+  <img src="assets/actiquest_logo.png" alt="ActiQuest Logo" width="150" />
+  <h1>⚡ ActiQuest: Campus Fitness & Active Learning Quest System</h1>
+</div>
 
 [![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat&logo=android)](https://android.com)
 [![Language](https://img.shields.io/badge/Language-Kotlin-7F52FF?style=flat&logo=kotlin)](https://kotlinlang.org)
@@ -16,15 +19,17 @@
 Traditional university wellness programs often struggle with low student engagement and cumbersome manual tracking. **ActiQuest** solves this by providing:
 
 1. **Student Adventure Portal**:
-   - **Landmark QR Quests**: Discover and scan QR code markers posted at physical campus hotspots (e.g., Side Gate, Building Entrances, Track Oval).
+   - **Landmark QR Quests**: Discover and scan QR code markers posted at physical campus hotspots (e.g., Side Gate area or around the BB lobby, building entrances, Track Oval).
    - **Activity Proof Engine**: Record short video proofs of completed exercises or upload screenshots from pedometers, fitness bands, or running apps (Steps, Active Minutes, 3KM runs).
+   - **Academic Profile & Verified Changes**: Students can update their profile. Any change to academic assignment (College, Program, Year, Section) is sent to the Admin Verification Desk for verification so official class standings remain fair.
    - **Class Standing & College Battles**: Real-time leaderboards by College, Academic Program, Year Level, and Section.
    - **Milestone Badges**: Unlock achievement badges as workouts are reviewed and approved.
    - **Activity Journey**: Calendar-based streak tracking with weekly analytics.
 
 2. **Admin Verification Desk (PE Faculty & Coordinators)**:
    - Dedicated, role-gated verification queue to inspect submitted exercise videos and fitness screenshots.
-   - Real-time review tools: Approve with custom or full points, reject with personalized coaching notes, or request retakes.
+   - **Academic Change Requests**: Dedicated verification desk to approve or reject student class transfers and major shifts with official notes.
+   - **Scoring Tools**: Approve with custom or full points, reject with personalized coaching notes, or request retakes.
    - Immediate point synchronization with student profiles and class totals in Firestore.
    - Live quest manager and campus-wide metrics summary.
 
@@ -36,12 +41,12 @@ Students unlock quests by scanning physical QR markers located across the campus
 
 > 💡 **Try it Out**: Open the ActiQuest app, tap **Scan Quest QR** on the home screen, and point your camera directly at any of the QR codes below!
 
-### 🌟 Featured New Quest: Side Gate Lunges
+### 🌟 Featured Quest: Side Gate Lunges
 - **Backend Quest Code**: `QQ-SIDEGATE` *(also accepts alias `QQ-SIDE-GATE`)*
 - **Title**: Side Gate Lunges
 - **Category**: Quick Quest (50 Points | 30s Cap)
-- **Campus Location**: Campus Side Gate Walkway
-- **Exercise**: Perform 12 walking lunges (6 per leg) along the pedestrian walkway.
+- **Campus Location**: Side Gate Area / BB Lobby
+- **Exercise**: Perform 12 walking lunges (6 per leg) at the side gate area or around the BB lobby walkway.
 - **QR Code Content**: `QQ-SIDEGATE`
 
 <div align="center">
@@ -55,7 +60,7 @@ Students unlock quests by scanning physical QR markers located across the campus
 
 | Quest Code | Quest Title | Category | Pts | Location | Scan Marker (Direct QR) |
 | :--- | :--- | :---: | :---: | :--- | :---: |
-| `QQ-SIDEGATE` | **Side Gate Lunges** | Quick | 50 | Campus Side Gate Walkway | [View QR](https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=QQ-SIDEGATE) |
+| `QQ-SIDEGATE` | **Side Gate Lunges** | Quick | 50 | Side Gate Area / BB Lobby | [View QR](https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=QQ-SIDEGATE) |
 | `QQ-DIOKNO` | **Diokno Steps** | Quick | 50 | Sen. Jose Diokno Entrance | [View QR](https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=QQ-DIOKNO) |
 | `QQ-CBEAM` | **CBEAM Stretch** | Quick | 50 | Outside CBEAM Hall | [View QR](https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=QQ-CBEAM) |
 | `QQ-SLOUNGE` | **South Lounge Squats** | Quick | 50 | South Lounge | [View QR](https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=QQ-SLOUNGE) |
@@ -75,19 +80,19 @@ Students unlock quests by scanning physical QR markers located across the campus
 ├── app/src/main/java/com/actiquest/
 │   ├── MainActivity.kt               # Edge-to-edge system bars controller
 │   ├── data/
-│   │   ├── FirebaseManager.kt        # Auth, Firestore sync, local cache & fallback
+│   │   ├── FirebaseManager.kt        # Auth, Firestore sync, local cache, academic requests & fallback
 │   │   └── Repository.kt             # Clean singleton abstraction
 │   ├── domain/
-│   │   └── Models.kt                 # Quests, Submissions, Badges, Colleges catalog
+│   │   └── Models.kt                 # Quests, Submissions, Badges, AcademicChangeRequest, Colleges catalog
 │   ├── ui/
 │   │   ├── ActiQuestApp.kt           # NavHost & authentication routing
 │   │   ├── components/               # Avatars, Cards, Badges, Video Player, Scanner
 │   │   ├── screens/
 │   │   │   ├── HomeScreen.kt         # Student dashboard, activity cards & feed
 │   │   │   ├── LoginScreen.kt        # Role-isolated Student & Admin portals
-│   │   │   ├── AdminReviewScreen.kt  # Verification desk & submission inspector
+│   │   │   ├── AdminReviewScreen.kt  # Verification desk, submissions & academic requests
 │   │   │   ├── StudentSubmissions.kt # Submission status, feedback & retake
-│   │   │   ├── ProfileSettings.kt    # User profile, theme toggle & About dialog
+│   │   │   ├── ProfileSettings.kt    # User profile, theme toggle, academic change & About dialog
 │   │   │   ├── ScanScreen.kt         # Real-time ZXing QR scanner
 │   │   │   ├── RecordScreen.kt       # CameraX in-app video proof recorder
 │   │   │   ├── StandingsScreen.kt    # Inter-class & college leaderboards
@@ -132,8 +137,8 @@ In the same file (`app/src/main/java/com/actiquest/domain/Models.kt`), update `S
 "QQ-SIDEGATE" to Quest(
     questCode = "QQ-SIDEGATE",
     title = "Side Gate Lunges",
-    instructions = "Perform 12 walking lunges (6 per leg) along the pedestrian walkway.",
-    location = "Campus Side Gate Walkway",
+    instructions = "Perform 12 walking lunges (6 per leg) at the side gate area or around the BB lobby walkway.",
+    location = "Side Gate Area / BB Lobby",
     category = "quick",
     pointValue = 50,
     maxSeconds = 30,
@@ -184,6 +189,12 @@ service cloud.firestore {
       allow update: if isAdmin();
     }
 
+    match /academic_requests/{requestId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin();
+    }
+
     match /classes/{classId} {
       allow read: if request.auth != null;
       allow write: if isAdmin();
@@ -219,12 +230,13 @@ The compiled APK will be generated at:
 ## 🔒 Security & Privacy Practices
 
 - **Zero Hardcoded Secrets**: No confidential keys or sensitive credentials are stored in git.
-- **Granular Firestore Rules**: Students can only view and submit their own activity proofs. Only authenticated faculty administrators can access the Verification Desk to grade and award points.
+- **Granular Firestore Rules**: Students can only view and submit their own activity proofs. Only authenticated faculty administrators can access the Verification Desk to grade points and verify academic changes.
 - **Device Camera Access**: Camera access is requested strictly at runtime when opening the QR scanner or recording motion proof.
 
 ---
 
 ## 📄 License & Credits
 
-Developed with ❤️ for collegiate physical health, active education, and community well-being.
-Released under the [MIT License](LICENSE).
+Distributed under the [MIT License](LICENSE).
+Copyright (c) 2026 ActiQuest Contributors & Campus Wellness Initiative.
+See [LICENSE](LICENSE) for full details.

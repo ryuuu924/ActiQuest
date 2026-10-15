@@ -20,7 +20,9 @@ data class User(
     val approvedCount: Int = 0,
     val expoPushToken: String = "",
     val consentGiven: Boolean = true,
-    val profilePicUri: String = ""
+    val profilePicUri: String = "",
+    val pendingAcademicUpdate: Boolean = false,
+    val pendingAcademicDetails: String = ""
 ) {
     fun getEffectiveFirstName(): String {
         if (firstName.isNotBlank()) return firstName.trim()
@@ -35,6 +37,26 @@ data class User(
         return name.ifBlank { "Student" }
     }
 }
+
+data class AcademicChangeRequest(
+    val requestId: String = UUID.randomUUID().toString(),
+    val userId: String = "",
+    val studentName: String = "",
+    val studentEmail: String = "",
+    val currentCollege: String = "",
+    val currentProgram: String = "",
+    val currentYearLevel: String = "",
+    val currentSection: String = "",
+    val requestedCollege: String = "",
+    val requestedProgram: String = "",
+    val requestedYearLevel: String = "",
+    val requestedSection: String = "",
+    val reason: String = "",
+    val status: String = "pending", // pending, approved, rejected
+    val requestedAt: Long = System.currentTimeMillis(),
+    val reviewedAt: Long? = null,
+    val reviewerNote: String? = null
+)
 
 data class College(
     val code: String,
@@ -234,8 +256,8 @@ object SeedQuests {
         "QQ-SIDEGATE" to Quest(
             questCode = "QQ-SIDEGATE",
             title = "Side Gate Lunges",
-            instructions = "Perform 12 walking lunges (6 per leg) along the campus perimeter walkway near the Side Gate.",
-            location = "Campus Side Gate Walkway",
+            instructions = "Perform 12 walking lunges (6 per leg) at the side gate area or around the BB lobby walkway.",
+            location = "Side Gate Area / BB Lobby",
             category = "quick",
             pointValue = 50,
             maxSeconds = 30,
