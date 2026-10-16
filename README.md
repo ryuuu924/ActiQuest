@@ -238,5 +238,5 @@ The compiled APK will be generated at:
 ## 📄 License & Credits
 
 Distributed under the [MIT License](LICENSE).
-Copyright (c) 2026 ActiQuest Contributors & Campus Wellness Initiative.
+Copyright (c) 2026 Yuri Yabut, ActiQuest Contributors & Campus Wellness Initiative.
 See [LICENSE](LICENSE) for full details.
